@@ -1,16 +1,27 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
 )
 
-func newVehicle(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
+// Vehicle containing ID, Year, Make, Model
+type Vehicle struct {
+	// new vehicle struct
+	ID    string `json:"id,omitempty"`
+	Year  int    `json:"year,omitempty"`
+	Make  string `json:"make,omitempty"`
+	Model string `json:"model,omitempty"`
+}
 
-	fmt.Println(params)
+func newVehicle(w http.ResponseWriter, r *http.Request) {
+	var vehicle Vehicle
+	json.NewDecoder(r.Body).Decode(&vehicle)
+	fmt.Println(&vehicle)
 }
 
 func main() {
@@ -18,4 +29,6 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/newVehicle", newVehicle).Methods("POST")
+
+	log.Fatal(http.ListenAndServe(":8000", router))
 }

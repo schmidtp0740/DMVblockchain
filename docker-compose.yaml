@@ -1,0 +1,10 @@
+version: "3"
+
+services:
+  backend:
+    build: ./backend/.
+    command: go run main.go
+    ports:
+      - "8000:8000"
+    volumes:
+      - ".:/usr/src/app"
