@@ -1,4 +1,4 @@
-package API
+package api
 
 import (
 	"bytes"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -14,10 +13,19 @@ import (
 // Vehicle containing ID, Year, Make, Model
 type Vehicle struct {
 	// new vehicle struct
-	ID    string `json:"id,omitempty"`
-	Year  int    `json:"year,omitempty"`
-	Make  string `json:"make,omitempty"`
-	Model string `json:"model,omitempty"`
+	VIN           string `json:"id,omitempty"`
+	Year          string `json:"year,omitempty"`
+	Make          string `json:"make,omitempty"`
+	Model         string `json:"model,omitempty"`
+	Mileage       string `json:"mileage,omitempty"`
+	Salvage       string `json:"salvage,omitempty"`
+	PurchasePrice string `json:"purchasePrice,omitempty"`
+	Owner         string `json:"owner,omitempty"`
+	DOB           string `json:"dob,omitempty"`
+	StreetAddress string `json:"streetAddress,omitempty"`
+	City          string `json:"city,omitempty"`
+	State         string `json:"state,omitempty"`
+	Zip           string `json:"zip,omitempty"`
 }
 
 // NewVehicle ...
@@ -28,17 +36,31 @@ func NewVehicle(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(r.Body).Decode(&vehicle)
 
-	fmt.Println(vehicle.ID)
+	fmt.Println(vehicle.VIN)
 
 	url := "http://129.146.106.151:4001/bcsgw/rest/v1/transaction/invocation"
+
+	args := `["` +
+		vehicle.VIN + `", "` +
+		vehicle.Year + `", "` +
+		vehicle.Make + `", "` +
+		vehicle.Model + `", "` +
+		vehicle.Mileage + `", "` +
+		vehicle.Salvage + `", "` +
+		vehicle.PurchasePrice + `", "` +
+		vehicle.Owner + `", "` +
+		vehicle.DOB + `", "` +
+		vehicle.StreetAddress + `", "` +
+		vehicle.City + `", "` +
+		vehicle.State + `", "` +
+		vehicle.Zip + `]`
 
 	var jsonStr = []byte(`{
 		"channel": "mychannel",
 		"chaincode": "emrCC",
 		"chaincodeVer": "v1",
 		"method": "insertObject",
-		"args": ["` + vehicle.ID + `", "` + vehicle.Make + `", "` + vehicle.Model + `", "nil", ` + strconv.Itoa(vehicle.Year) + `, "nil", "nil", "nil", "nil"]
-	}`)
+		"args": ` + args + `}`)
 
 	fmt.Println("JSON to Blockchain: \n", string(jsonStr))
 
