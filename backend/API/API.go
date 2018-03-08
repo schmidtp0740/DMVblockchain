@@ -8,13 +8,9 @@ import (
 	"log"
 	"net/http"
 	"os"
-
-	"github.com/gorilla/mux"
 )
 
-// Vehicle containing ID, Year, Make, Model
-type Vehicle struct {
-	// new vehicle struct
+type vehicle struct {
 	VIN           string `json:"vin,omitempty"`
 	Year          string `json:"year,omitempty"`
 	Make          string `json:"make,omitempty"`
@@ -41,52 +37,20 @@ type blockchainCall struct {
 // NewVehicle ...
 func NewVehicle(w http.ResponseWriter, r *http.Request) {
 	// ...
-
-	var vehicle Vehicle
-
-	json.NewDecoder(r.Body).Decode(&vehicle)
-
-	fmt.Printf("vin: %s\n\n", vehicle.VIN)
-
-	channelForURL := make(chan string) //make a channel for getting URL
-	go func() {
-		url := getURL() + "/bcsgw/rest/v1/transaction/invocation"
-		channelForURL <- url
-	}()
-
-	m := blockchainCall{
-		"mychannel",
-		"emrCC",
-		"v1",
-		"insertObject",
-		[]string{vehicle.VIN, vehicle.Year, vehicle.Make, vehicle.Model, vehicle.Mileage, vehicle.Salvage, vehicle.PurchasePrice, vehicle.Owner, vehicle.DOB, vehicle.StreetAddress, vehicle.City, vehicle.State, vehicle.Zip},
-	}
-	fmt.Printf("m: %v\n\n", m)
-
-	body := blockchainRequest(m, channelForURL)
-
-	json.NewEncoder(w).Encode(body)
-
-	fmt.Printf("Response from blockchain: %s\n\n", body)
+	handler(w, r, "insertObject")
 
 }
 
 // ChangeOwner ...
 func ChangeOwner(w http.ResponseWriter, r *http.Request) {
 	// ...
-	params := mux.Vars(r)
-
-	var vehicle Vehicle
-
-	json.NewDecoder(r.Body).Decode(&vehicle)
-
-	fmt.Printf("vehicle vin and info: %v %v\n", params["vin"], vehicle)
+	handler(w, r, "modifyObject")
 
 }
 
 func getURL() (url string) {
 
-	file, err := os.Open("env")
+	file, err := os.Open(".env")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -126,4 +90,34 @@ func blockchainRequest(m blockchainCall, c chan string) string {
 	body, _ := ioutil.ReadAll(resp.Body)
 
 	return string(body)
+}
+
+func handler(w http.ResponseWriter, r *http.Request, action string) {
+	var vehicle vehicle
+
+	json.NewDecoder(r.Body).Decode(&vehicle)
+
+	channelForURL := make(chan string)
+	go func() {
+		url := getURL() + "/bcsgw/rest/v1/transaction/invocation"
+		channelForURL <- url
+	}()
+
+	m := blockchainCall{
+		"mychannel",
+		"emrCC",
+		"v1",
+		action,
+		[]string{
+			vehicle.VIN, vehicle.Year, vehicle.Make, vehicle.Model,
+			vehicle.Mileage, vehicle.Salvage, vehicle.PurchasePrice, vehicle.Owner,
+			vehicle.DOB, vehicle.StreetAddress, vehicle.City, vehicle.State, vehicle.Zip,
+		},
+	}
+
+	body := blockchainRequest(m, channelForURL)
+
+	json.NewEncoder(w).Encode(body)
+
+	fmt.Printf("Response from blockchain: %s\n\n", body)
 }

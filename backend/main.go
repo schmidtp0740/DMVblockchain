@@ -10,12 +10,11 @@ import (
 )
 
 func main() {
-	fmt.Println("hello")
 
 	router := mux.NewRouter()
 
 	router.HandleFunc("/newVehicle", api.NewVehicle).Methods("POST")
-	router.HandleFunc("/changeOwner/{vin}", api.ChangeOwner).Methods("PATCH")
-
+	router.HandleFunc("/changeOwner", api.ChangeOwner).Methods("PATCH")
+	fmt.Println("Listening on port: 8000")
 	log.Fatal(http.ListenAndServe(":8000", router))
 }
