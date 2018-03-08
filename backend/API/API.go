@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 )
@@ -13,7 +15,7 @@ import (
 // Vehicle containing ID, Year, Make, Model
 type Vehicle struct {
 	// new vehicle struct
-	VIN           string `json:"id,omitempty"`
+	VIN           string `json:"vin,omitempty"`
 	Year          string `json:"year,omitempty"`
 	Make          string `json:"make,omitempty"`
 	Model         string `json:"model,omitempty"`
@@ -28,6 +30,14 @@ type Vehicle struct {
 	Zip           string `json:"zip,omitempty"`
 }
 
+type blockchainCall struct {
+	channel      string
+	chaincode    string
+	chaincodeVer string
+	method       string
+	args         []string
+}
+
 // NewVehicle ...
 func NewVehicle(w http.ResponseWriter, r *http.Request) {
 	// ...
@@ -36,53 +46,28 @@ func NewVehicle(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(r.Body).Decode(&vehicle)
 
-	fmt.Println(vehicle.VIN)
+	fmt.Printf("vin: %s\n\n", vehicle.VIN)
 
-	url := "http://129.146.106.151:4001/bcsgw/rest/v1/transaction/invocation"
+	channelForURL := make(chan string) //make a channel for getting URL
+	go func() {
+		url := getURL() + "/bcsgw/rest/v1/transaction/invocation"
+		channelForURL <- url
+	}()
 
-	args := `["` +
-		vehicle.VIN + `", "` +
-		vehicle.Year + `", "` +
-		vehicle.Make + `", "` +
-		vehicle.Model + `", "` +
-		vehicle.Mileage + `", "` +
-		vehicle.Salvage + `", "` +
-		vehicle.PurchasePrice + `", "` +
-		vehicle.Owner + `", "` +
-		vehicle.DOB + `", "` +
-		vehicle.StreetAddress + `", "` +
-		vehicle.City + `", "` +
-		vehicle.State + `", "` +
-		vehicle.Zip + `]`
-
-	var jsonStr = []byte(`{
-		"channel": "mychannel",
-		"chaincode": "emrCC",
-		"chaincodeVer": "v1",
-		"method": "insertObject",
-		"args": ` + args + `}`)
-
-	fmt.Println("JSON to Blockchain: \n", string(jsonStr))
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
-
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-
-	resp, err := client.Do(req)
-
-	if err != nil {
-		panic(err)
+	m := blockchainCall{
+		"mychannel",
+		"emrCC",
+		"v1",
+		"insertObject",
+		[]string{vehicle.VIN, vehicle.Year, vehicle.Make, vehicle.Model, vehicle.Mileage, vehicle.Salvage, vehicle.PurchasePrice, vehicle.Owner, vehicle.DOB, vehicle.StreetAddress, vehicle.City, vehicle.State, vehicle.Zip},
 	}
+	fmt.Printf("m: %v\n\n", m)
 
-	defer resp.Body.Close()
+	body := blockchainRequest(m, channelForURL)
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	json.NewEncoder(w).Encode(body)
 
-	json.NewEncoder(w).Encode(string(body))
-
-	fmt.Println("Response from blockchain: ", string(body))
+	fmt.Printf("Response from blockchain: %s\n\n", body)
 
 }
 
@@ -95,6 +80,50 @@ func ChangeOwner(w http.ResponseWriter, r *http.Request) {
 
 	json.NewDecoder(r.Body).Decode(&vehicle)
 
-	fmt.Printf("vehicle vin and info: %v %v", params["vin"], vehicle)
+	fmt.Printf("vehicle vin and info: %v %v\n", params["vin"], vehicle)
 
+}
+
+func getURL() (url string) {
+
+	file, err := os.Open("env")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	data := make([]byte, 100)
+
+	count, err := file.Read(data)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	url = string(data[:count])
+
+	fmt.Printf("url: %s\n\n", url)
+
+	return
+}
+
+func blockchainRequest(m blockchainCall, c chan string) string {
+
+	b, err := json.Marshal(m)
+
+	url := <-c // Receive url from Channel
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(b))
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	return string(body)
 }
