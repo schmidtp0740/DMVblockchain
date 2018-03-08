@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -24,19 +26,33 @@ func NewVehicle(w http.ResponseWriter, r *http.Request) {
 	// ...
 	var vehicle Vehicle
 	json.NewDecoder(r.Body).Decode(&vehicle)
-	fmt.Println(vehicle)
+	fmt.Println(vehicle.ID)
+
+	url := "http://129.146.106.151:4001/bcsgw/rest/v1/transaction/invocation"
 
 	var jsonStr = []byte(`{
 		"channel": "mychannel",
 		"chaincode": "emrCC",
 		"chaincodeVer": "v1",
-		"args": ["", "", "", 123, "", "", "", ""]
+		"method": "insertObject",
+		"args": ["` + vehicle.ID + `", "` + vehicle.Make + `", "` + vehicle.Model + `", "nil", ` + strconv.Itoa(vehicle.Year) + `, "nil", "nil", "nil", "nil"]
 	}`)
-	resp, err := http.NewRequest("POST",
-		"http:129.0.0.1:4001/bcsgw/rest/v1/transaction/invocation",
-		bytes.NewBuffer(jsonStr))
 
-	fmt.Printf("Response from blockchain: %v\n%v", resp, err)
+	fmt.Println("JSON to Blockchain: \n", string(jsonStr))
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	fmt.Println("Response from blockchain: ", string(body))
 }
 
 // ChangeOwner ...
